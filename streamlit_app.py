@@ -95,6 +95,23 @@ def get_whatsapp_link(phone: str, inv_id: str, amount: float):
     encoded = urllib.parse.quote(msg)
     return f"https://wa.me/{clean}?text={encoded}"
 
+def upload_file_to_supabase(bucket: str, path: str, file_bytes: bytes, content_type: str = "application/octet-stream"):
+    """Upload file with proper content-type to avoid mime type errors."""
+    try:
+        # Try with file_options (newer supabase-py versions)
+        supabase.storage.from_(bucket).upload(
+            path, 
+            file_bytes, 
+            file_options={"content-type": content_type, "upsert": "true"}
+        )
+    except Exception:
+        # Fallback: try without file_options for older versions
+        try:
+            supabase.storage.from_(bucket).upload(path, file_bytes)
+        except Exception as e2:
+            raise e2
+    return supabase.storage.from_(bucket).get_public_url(path)
+
 # ==================== BARCODE ====================
 def generate_barcode(asset_id: str):
     buffer = io.BytesIO()
@@ -246,15 +263,6 @@ def login_page():
         0%, 100% { opacity: 0.6; transform: scale(1); }
         50% { opacity: 1; transform: scale(1.05); }
     }
-    .divine-container {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: flex-start;
-        min-height: 100vh;
-        padding-top: 20px;
-        padding-bottom: 20px;
-    }
     .divine-title {
         color: #FFD700;
         font-family: Georgia, 'Times New Roman', serif;
@@ -262,6 +270,8 @@ def login_page():
         text-shadow: 0 3px 10px rgba(0,0,0,0.8);
         margin-bottom: 2px;
         letter-spacing: 1px;
+        font-size: 2.2rem;
+        font-weight: bold;
     }
     .divine-sub {
         color: #FFF8DC;
@@ -281,7 +291,7 @@ def login_page():
         position: relative;
         width: 200px;
         height: 200px;
-        margin: 15px auto 25px auto;
+        margin: 15px auto 20px auto;
     }
     .rays {
         position: absolute;
@@ -326,8 +336,13 @@ def login_page():
         border: 3px solid #B8860B;
         box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         max-width: 420px;
-        width: 90%;
-        margin: 0 auto;
+        margin: 0 auto 30px auto;
+    }
+    .login-title {
+        color: #8B1538;
+        text-align: center;
+        margin-bottom: 16px;
+        font-family: Georgia, serif;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -341,20 +356,20 @@ def login_page():
     except Exception:
         pass
 
-    # Build the divine header
+    # Header text
+    st.markdown('<div class="divine-title">Sree Bhadra Mandapam</div>', unsafe_allow_html=True)
+    st.markdown('<div class="divine-sub">Samrakshana Seva Trust 179/2004</div>', unsafe_allow_html=True)
+    st.markdown('<div class="divine-contact">Kanjampuram P O, Kanniyakumari Dist - 629154</div>', unsafe_allow_html=True)
+    st.markdown('<div class="divine-contact">Mobile No: 9659828283 | E-mail: bhadreshwariamman@gmail.com</div>', unsafe_allow_html=True)
+
+    # Image with rays
     st.markdown("""
-    <div class="divine-container">
-        <div class="divine-title" style="font-size: 2.2rem; font-weight: bold;">Sree Bhadra Mandapam</div>
-        <div class="divine-sub">Samrakshana Seva Trust 179/2004</div>
-        <div class="divine-contact">Kanjampuram P O, Kanniyakumari Dist - 629154</div>
-        <div class="divine-contact">Mobile No: 9659828283 | E-mail: bhadreshwariamman@gmail.com</div>
-        <div class="rays-box">
-            <div class="rays"></div>
-            <div class="rays-glow"></div>
-            <div class="god-frame">
+    <div class="rays-box">
+        <div class="rays"></div>
+        <div class="rays-glow"></div>
+        <div class="god-frame">
     """, unsafe_allow_html=True)
 
-    # FIX: Use st.image instead of raw HTML to avoid quote escaping issues
     if img_url:
         try:
             st.image(img_url, width=200, use_container_width=False)
@@ -363,39 +378,37 @@ def login_page():
     else:
         st.markdown('<div style="font-size:4rem; color:#FFD700; text-align:center; line-height:1;">🛕<br><span style="font-size:0.8rem; color:#FFF8DC;">Bhadreshwariamman</span></div>', unsafe_allow_html=True)
 
-    st.markdown("""
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.markdown("</div></div>", unsafe_allow_html=True)
 
-    # Login form - NO columns, direct centered wrapper
-    st.markdown('<div class="login-form-wrapper">', unsafe_allow_html=True)
+    # Login form - centered with columns
+    _, col, _ = st.columns([1, 3, 1])
+    with col:
+        st.markdown('<div class="login-form-wrapper">', unsafe_allow_html=True)
+        st.markdown("<h3 class='login-title'>Management Login</h3>", unsafe_allow_html=True)
 
-    st.markdown("<h3 style='text-align:center; color:#8B1538; margin-bottom:20px; font-family:Georgia,serif;'>Management Login</h3>", unsafe_allow_html=True)
+        with st.form("login_form", clear_on_submit=False):
+            username = st.text_input("Username", value="admin", placeholder="👤 Enter username")
+            password = st.text_input("Password", type="password", value="admin", placeholder="🔒 Enter password")
+            submitted = st.form_submit_button("✨ Sign In", use_container_width=True, type="primary")
 
-    with st.form("login_form", clear_on_submit=False):
-        username = st.text_input("Username", value="admin", placeholder="👤 Enter username")
-        password = st.text_input("Password", type="password", value="admin", placeholder="🔒 Enter password")
-        submitted = st.form_submit_button("✨ Sign In", use_container_width=True, type="primary")
+            if submitted:
+                if not username or not password:
+                    st.error("Please enter both username and password")
+                else:
+                    try:
+                        res = supabase.table("users").select("*").eq("username", username).eq("password_hash", password).execute()
+                        if res.data:
+                            st.session_state.authenticated = True
+                            st.session_state.user = res.data[0]
+                            st.rerun()
+                        else:
+                            st.error("Invalid credentials. Use admin / admin")
+                    except Exception as e:
+                        st.error(f"Database connection error: {e}")
 
-        if submitted:
-            if not username or not password:
-                st.error("Please enter both username and password")
-            else:
-                try:
-                    res = supabase.table("users").select("*").eq("username", username).eq("password_hash", password).execute()
-                    if res.data:
-                        st.session_state.authenticated = True
-                        st.session_state.user = res.data[0]
-                        st.rerun()
-                    else:
-                        st.error("Invalid credentials. Use admin / admin")
-                except Exception as e:
-                    st.error(f"Database connection error: {e}")
+        st.markdown("<p style='text-align:center; color:#8B1538; font-size:0.85rem; margin-top:12px;'>🙏 Welcome to Sree Bhadra Mandapam</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("<p style='text-align:center; color:#8B1538; font-size:0.85rem; margin-top:12px;'>🙏 Welcome to Sree Bhadra Mandapam</p>", unsafe_allow_html=True)
-    st.markdown('</div>', unsafe_allow_html=True)
 def do_logout():
     st.session_state.authenticated = False
     st.session_state.user = None
@@ -449,8 +462,9 @@ def sidebar_nav():
         pages = {
             "Dashboard": "📊",
             "Hall Booking": "📅",
+            "Billing": "🧾",
             "Payments": "💳",
-            "Invoices": "🧾",
+            "Invoices": "📄",
             "Expenses": "💸",
             "Thirumana Bond": "💍",
             "Assets": "🪑",
@@ -618,7 +632,88 @@ def booking_page():
                     except Exception as e:
                         st.error(f"Save failed: {e}")
 
-# ==================== PAYMENTS ====================
+# ==================== BILLING ====================
+def billing_page():
+    st.markdown("<h2 style='color:#8B1538;'>🧾 Billing</h2>", unsafe_allow_html=True)
+    st.caption("Track payments and generate invoices after full payment.")
+
+    tab_pay, tab_inv = st.tabs(["💳 Payment Tracking", "📄 Invoices"])
+
+    with tab_pay:
+        try:
+            bookings = supabase.table("bookings").select("*").execute().data or []
+        except Exception:
+            st.error("Failed to load bookings")
+            return
+
+        if not bookings:
+            st.info("No bookings available. Create a booking first.")
+            return
+
+        booking_opts = {f"{b['id']} - {b['event_name']} ({b['customer_name']})": b for b in bookings}
+        selected = st.selectbox("Select Booking", list(booking_opts.keys()))
+        booking = booking_opts[selected]
+        bid = booking["id"]
+
+        payments = supabase.table("payments").select("*").eq("booking_id", bid).order("payment_date", desc=True).execute().data or []
+        total_paid = sum(p.get("amount", 0) for p in payments)
+        balance = booking.get("total_amount", 0) - total_paid
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Total Amount", fmt_currency(booking.get("total_amount", 0)))
+        c2.metric("Total Paid", fmt_currency(total_paid))
+        delta_text = "Fully Paid" if balance <= 0 else f"Due: {fmt_currency(balance)}"
+        c3.metric("Balance", fmt_currency(balance), delta=delta_text, delta_color="inverse")
+
+        st.markdown("<hr style='border-color:#E8DCC4;'>", unsafe_allow_html=True)
+
+        sub_tab_hist, sub_tab_add = st.tabs(["📋 Payment History", "➕ Add Payment"])
+
+        with sub_tab_hist:
+            if payments:
+                df = pd.DataFrame(payments)[["payment_date", "amount", "method", "notes"]]
+                df.columns = ["Date", "Amount", "Method", "Notes"]
+                st.dataframe(df, use_container_width=True, hide_index=True)
+
+                st.markdown("---")
+                pay_del = st.selectbox("Remove Payment", [""] + [f"{p['id']} - ₹{p['amount']} on {p['payment_date']}" for p in payments])
+                if pay_del and st.button("Delete Payment", type="secondary"):
+                    pid = pay_del.split(" - ")[0]
+                    try:
+                        supabase.table("payments").delete().eq("id", pid).execute()
+                        st.success("Payment deleted")
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Error: {e}")
+            else:
+                st.info("No payments recorded yet")
+
+        with sub_tab_add:
+            if balance <= 0:
+                st.success("✅ This booking is fully paid. Go to Invoices tab to generate the invoice.")
+            else:
+                with st.form("payment_form", clear_on_submit=True):
+                    st.markdown(f"**Balance Remaining: {fmt_currency(balance)}**")
+                    pdate = st.date_input("Payment Date", value=date.today())
+                    pamount = st.number_input("Amount (₹)*", min_value=1, max_value=int(balance), step=100)
+                    pmethod = st.selectbox("Payment Method", ["Cash", "UPI / GPay", "Bank Transfer", "Cheque"])
+                    pnotes = st.text_area("Notes / Reference")
+                    if st.form_submit_button("Record Payment", type="primary"):
+                        try:
+                            row = {
+                                "booking_id": bid, "amount": pamount,
+                                "payment_date": pdate.isoformat(), "method": pmethod, "notes": pnotes
+                            }
+                            supabase.table("payments").insert(row).execute()
+                            st.success("Payment recorded successfully")
+                            st.rerun()
+                        except Exception as e:
+                            st.error(f"Failed: {e}")
+
+    with tab_inv:
+        invoices_page_content()
+
+# ==================== PAYMENTS (standalone) ====================
 def payments_page():
     st.markdown("<h2 style='color:#8B1538;'>💳 Payment Tracking</h2>", unsafe_allow_html=True)
     st.caption("Record partial payments against a booking. Invoice can only be generated after full payment.")
@@ -695,7 +790,10 @@ def payments_page():
 
 # ==================== INVOICES ====================
 def invoices_page():
-    st.markdown("<h2 style='color:#8B1538;'>🧾 Invoice Generation</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 style='color:#8B1538;'>📄 Invoices</h2>", unsafe_allow_html=True)
+    invoices_page_content()
+
+def invoices_page_content():
     st.caption("Invoices are generated ONLY after full payment is received for a booking.")
 
     tab_gen, tab_view = st.tabs(["➕ Generate Invoice", "📋 View Invoices"])
@@ -791,10 +889,8 @@ def invoices_page():
                 </div>
                 """, unsafe_allow_html=True)
 
-                # Action buttons
                 c1, c2, c3, c4 = st.columns([1, 1, 1, 2])
 
-                # PDF Download
                 with c1:
                     pays = supabase.table("payments").select("*").eq("booking_id", inv["booking_id"]).execute().data or []
                     pdf_buffer = generate_invoice_pdf(inv, bk, pays)
@@ -806,7 +902,6 @@ def invoices_page():
                         key=f"pdf_{inv['id']}"
                     )
 
-                # WhatsApp
                 with c2:
                     if bk.get("phone"):
                         wa_link = get_whatsapp_link(bk["phone"], inv["id"], inv.get("total_amount", 0))
@@ -814,7 +909,6 @@ def invoices_page():
                     else:
                         st.button("📱 WhatsApp", disabled=True, key=f"wa_disabled_{inv['id']}")
 
-                # Edit (Admin only)
                 with c3:
                     if is_admin:
                         if st.button("✏️ Edit", key=f"edit_{inv['id']}"):
@@ -822,7 +916,6 @@ def invoices_page():
                     else:
                         st.button("✏️ Edit", disabled=True, key=f"edit_dis_{inv['id']}")
 
-                # Delete (Admin only)
                 with c4:
                     if is_admin:
                         if st.button("🗑️ Delete Invoice", key=f"del_{inv['id']}"):
@@ -835,7 +928,6 @@ def invoices_page():
                     else:
                         st.button("🗑️ Delete Invoice", disabled=True, key=f"del_dis_{inv['id']}")
 
-                # Edit form
                 if is_admin and st.session_state.get(f"edit_inv_{inv['id']}", False):
                     with st.form(f"edit_form_{inv['id']}"):
                         st.markdown(f"**Edit Invoice {inv['id']}**")
@@ -1005,14 +1097,16 @@ def bonds_page():
                         doc_url = None
 
                         if photo:
-                            path = f"bonds/{bid}_photo.{photo.name.split('.')[-1]}"
-                            supabase.storage.from_("documents").upload(path, photo.getvalue())
-                            photo_url = supabase.storage.from_("documents").get_public_url(path)
+                            ext = photo.name.split('.')[-1].lower()
+                            mime = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
+                            path = f"bonds/{bid}_photo.{ext}"
+                            photo_url = upload_file_to_supabase("documents", path, photo.getvalue(), mime)
 
                         if doc:
-                            path = f"bonds/{bid}_doc.{doc.name.split('.')[-1]}"
-                            supabase.storage.from_("documents").upload(path, doc.getvalue())
-                            doc_url = supabase.storage.from_("documents").get_public_url(path)
+                            ext = doc.name.split('.')[-1].lower()
+                            mime = f"image/{ext}" if ext in ['jpg','jpeg','png'] else "application/pdf"
+                            path = f"bonds/{bid}_doc.{ext}"
+                            doc_url = upload_file_to_supabase("documents", path, doc.getvalue(), mime)
 
                         supabase.table("bonds").insert({
                             "id": bid, "groom_name": groom, "bride_name": bride, "address": addr,
@@ -1060,7 +1154,6 @@ def assets_page():
             c1.metric("Total Asset Value", fmt_currency(total_val))
             c2.metric("Need Maintenance", repair_count)
 
-            # Barcode viewer
             st.markdown("---")
             st.markdown("### 🏷️ Asset Barcode")
             bc_opt = [""] + [f"{r['id']} - {r['asset_name']}" for r in data]
@@ -1191,7 +1284,6 @@ def reports_page():
             else:
                 st.info("No expenses in selected range")
 
-        # Download buttons
         if not report_df.empty:
             st.markdown("---")
             st.markdown("### 📥 Download Report")
@@ -1306,9 +1398,10 @@ def settings_page():
         uploaded = st.file_uploader("Upload New Login Image", type=["jpg", "jpeg", "png"])
         if uploaded and st.button("Save Login Image", type="primary"):
             try:
-                path = f"config/login_image.{uploaded.name.split('.')[-1]}"
-                supabase.storage.from_("documents").upload(path, uploaded.getvalue(), {"upsert": "true"})
-                url = supabase.storage.from_("documents").get_public_url(path)
+                ext = uploaded.name.split('.')[-1].lower()
+                mime = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
+                path = f"config/login_image.{ext}"
+                url = upload_file_to_supabase("documents", path, uploaded.getvalue(), mime)
                 set_setting("login_image_url", url)
                 st.success("Login image updated!")
                 st.rerun()
@@ -1316,7 +1409,6 @@ def settings_page():
                 st.error(f"Upload failed: {e}")
 
         st.markdown("---")
-        st.markdown("**Remove Login Image**")
         if current_url and st.button("Remove Image", type="secondary"):
             set_setting("login_image_url", "")
             st.success("Image removed. Default icon will show.")
@@ -1341,6 +1433,8 @@ def main():
             dashboard_page()
         elif page == "Hall Booking":
             booking_page()
+        elif page == "Billing":
+            billing_page()
         elif page == "Payments":
             payments_page()
         elif page == "Invoices":
