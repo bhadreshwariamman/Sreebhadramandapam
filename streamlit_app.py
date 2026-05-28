@@ -221,6 +221,7 @@ def generate_report_pdf(title: str, df: pd.DataFrame):
 
 # ==================== AUTH ====================
 def login_page():
+    # Inject custom CSS for full-screen divine login
     st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
@@ -234,53 +235,78 @@ def login_page():
         max-width: 100% !important;
         padding-top: 0 !important;
         padding-bottom: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
     }
     @keyframes rotate {
         from { transform: rotate(0deg); }
         to { transform: rotate(360deg); }
     }
     @keyframes pulse {
-        0%, 100% { opacity: 0.7; transform: scale(1); }
-        50% { opacity: 1; transform: scale(1.08); }
+        0%, 100% { opacity: 0.6; transform: scale(1); }
+        50% { opacity: 1; transform: scale(1.05); }
     }
-    .divine-wrap {
+    .divine-container {
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: flex-start;
-        min-height: 95vh;
-        padding-top: 30px;
+        min-height: 100vh;
+        padding-top: 20px;
+        padding-bottom: 20px;
+    }
+    .divine-title {
+        color: #FFD700;
+        font-family: Georgia, 'Times New Roman', serif;
+        text-align: center;
+        text-shadow: 0 3px 10px rgba(0,0,0,0.8);
+        margin-bottom: 2px;
+        letter-spacing: 1px;
+    }
+    .divine-sub {
+        color: #FFF8DC;
+        text-align: center;
+        font-size: 1rem;
+        text-shadow: 0 2px 6px rgba(0,0,0,0.7);
+        margin-bottom: 2px;
+    }
+    .divine-contact {
+        color: #E8DCC4;
+        text-align: center;
+        font-size: 0.82rem;
+        text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+        margin-bottom: 2px;
     }
     .rays-box {
         position: relative;
-        width: 220px;
-        height: 220px;
-        margin: 15px auto;
+        width: 200px;
+        height: 200px;
+        margin: 15px auto 25px auto;
     }
     .rays {
         position: absolute;
-        inset: -35px;
+        inset: -30px;
         border-radius: 50%;
         background: repeating-conic-gradient(
             from 0deg,
-            rgba(255, 215, 0, 0.15) 0deg 6deg,
-            transparent 6deg 12deg
+            rgba(255, 215, 0, 0.12) 0deg 5deg,
+            transparent 5deg 10deg
         );
-        animation: rotate 30s linear infinite;
+        animation: rotate 25s linear infinite;
     }
     .rays-glow {
         position: absolute;
-        inset: -10px;
+        inset: -8px;
         border-radius: 50%;
-        background: radial-gradient(circle, rgba(255,215,0,0.35) 0%, transparent 65%);
-        animation: pulse 4s ease-in-out infinite;
+        background: radial-gradient(circle, rgba(255,215,0,0.3) 0%, transparent 60%);
+        animation: pulse 3s ease-in-out infinite;
     }
     .god-frame {
         position: absolute;
         inset: 0;
         border-radius: 50%;
-        border: 5px solid #FFD700;
-        box-shadow: 0 0 45px rgba(255, 215, 0, 0.6), inset 0 0 25px rgba(255, 215, 0, 0.3);
+        border: 4px solid #FFD700;
+        box-shadow: 0 0 40px rgba(255, 215, 0, 0.5), inset 0 0 20px rgba(255, 215, 0, 0.2);
         overflow: hidden;
         background: #2E0410;
         display: flex;
@@ -293,66 +319,66 @@ def login_page():
         height: 100%;
         object-fit: cover;
     }
-    .headline {
-        text-align: center;
-        color: #FFD700;
-        font-family: Georgia, 'Times New Roman', serif;
-        text-shadow: 0 3px 8px rgba(0,0,0,0.7);
-        margin-bottom: 2px;
-        letter-spacing: 1px;
-    }
-    .subline {
-        text-align: center;
-        color: #FFF8DC;
-        font-size: 1rem;
-        text-shadow: 0 2px 5px rgba(0,0,0,0.6);
-        margin-bottom: 2px;
-    }
-    .contact-line {
-        text-align: center;
-        color: #E8DCC4;
-        font-size: 0.82rem;
-        text-shadow: 0 1px 3px rgba(0,0,0,0.5);
-        margin-bottom: 2px;
-    }
-    form[data-testid="stForm"] {
-        background: rgba(255, 251, 245, 0.98) !important;
-        border-radius: 20px !important;
-        padding: 30px 32px !important;
-        border: 3px solid #B8860B !important;
-        box-shadow: 0 25px 80px rgba(0,0,0,0.5) !important;
-        max-width: 440px !important;
-        margin: 10px auto 0 auto !important;
+    .login-form-wrapper {
+        background: rgba(255, 251, 245, 0.98);
+        border-radius: 18px;
+        padding: 28px 32px;
+        border: 3px solid #B8860B;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        max-width: 420px;
+        width: 90%;
+        margin: 0 auto;
     }
     </style>
     """, unsafe_allow_html=True)
 
-    img_url = get_setting("login_image_url") or ""
+    # Get stored login image URL
+    img_url = ""
+    try:
+        res = supabase.table("app_settings").select("value").eq("key", "login_image_url").execute()
+        if res.data:
+            img_url = res.data[0]["value"]
+    except Exception:
+        pass
 
-    st.markdown(f"""
-    <div class="divine-wrap">
-        <div class="headline" style="font-size: 2.3rem; font-weight: bold;">Sree Bhadra Mandapam</div>
-        <div class="subline">Samrakshana Seva Trust 179/2004</div>
-        <div class="contact-line">Kanjampuram P O, Kanniyakumari Dist - 629154</div>
-        <div class="contact-line">Mobile No: 9659828283 | E-mail: bhadreshwariamman@gmail.com</div>
+    # Build the divine header
+    st.markdown("""
+    <div class="divine-container">
+        <div class="divine-title" style="font-size: 2.2rem; font-weight: bold;">Sree Bhadra Mandapam</div>
+        <div class="divine-sub">Samrakshana Seva Trust 179/2004</div>
+        <div class="divine-contact">Kanjampuram P O, Kanniyakumari Dist - 629154</div>
+        <div class="divine-contact">Mobile No: 9659828283 | E-mail: bhadreshwariamman@gmail.com</div>
         <div class="rays-box">
             <div class="rays"></div>
             <div class="rays-glow"></div>
             <div class="god-frame">
-                {'<img src="'+img_url+'" alt="Goddess Bhadreshwariamman" onerror="this.style.display=\'none\'; this.parentElement.innerHTML=\'<div style=font-size:4.5rem;color:#FFD700;text-align:center;line-height:1.1;>🛕<br><span style=font-size:0.85rem;color:#FFF8DC;>Bhadreshwariamman</span></div>\';">' if img_url else '<div style="font-size:4.5rem; color:#FFD700; text-align:center; line-height:1.1;">🛕<br><span style="font-size:0.85rem; color:#FFF8DC;">Bhadreshwariamman</span></div>'}
+    """, unsafe_allow_html=True)
+
+    if img_url:
+        st.markdown(f'<img src="{img_url}" alt="Goddess Bhadreshwariamman" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=font-size:4rem;color:#FFD700;text-align:center;line-height:1;>🛕<br><span style=font-size:0.8rem;color:#FFF8DC;>Bhadreshwariamman</span></div>';">', unsafe_allow_html=True)
+    else:
+        st.markdown('<div style="font-size:4rem; color:#FFD700; text-align:center; line-height:1;">🛕<br><span style="font-size:0.8rem; color:#FFF8DC;">Bhadreshwariamman</span></div>', unsafe_allow_html=True)
+
+    st.markdown("""
             </div>
         </div>
     </div>
     """, unsafe_allow_html=True)
 
-    _, c, _ = st.columns([1, 3, 1])
-    with c:
-        with st.form("login_form", clear_on_submit=False):
-            st.markdown("<h3 style='text-align:center; color:#8B1538; margin-bottom:16px; font-family:Georgia,serif;'>Management Login</h3>", unsafe_allow_html=True)
-            username = st.text_input("Username", value="admin", label_visibility="collapsed", placeholder="👤 Username")
-            password = st.text_input("Password", type="password", value="admin", label_visibility="collapsed", placeholder="🔒 Password")
-            submitted = st.form_submit_button("✨ Sign In", use_container_width=True, type="primary")
-            if submitted:
+    # Login form - NO columns, direct centered wrapper
+    st.markdown('<div class="login-form-wrapper">', unsafe_allow_html=True)
+
+    st.markdown("<h3 style='text-align:center; color:#8B1538; margin-bottom:20px; font-family:Georgia,serif;'>Management Login</h3>", unsafe_allow_html=True)
+
+    with st.form("login_form", clear_on_submit=False):
+        username = st.text_input("Username", value="admin", placeholder="👤 Enter username")
+        password = st.text_input("Password", type="password", value="admin", placeholder="🔒 Enter password")
+        submitted = st.form_submit_button("✨ Sign In", use_container_width=True, type="primary")
+
+        if submitted:
+            if not username or not password:
+                st.error("Please enter both username and password")
+            else:
                 try:
                     res = supabase.table("users").select("*").eq("username", username).eq("password_hash", password).execute()
                     if res.data:
@@ -363,8 +389,9 @@ def login_page():
                         st.error("Invalid credentials. Use admin / admin")
                 except Exception as e:
                     st.error(f"Database connection error: {e}")
-        st.markdown("<p style='text-align:center; color:#FFD700; font-size:0.85rem; margin-top:8px;'>🙏 Welcome to Sree Bhadra Mandapam</p>", unsafe_allow_html=True)
 
+    st.markdown("<p style='text-align:center; color:#8B1538; font-size:0.85rem; margin-top:12px;'>🙏 Welcome to Sree Bhadra Mandapam</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 def do_logout():
     st.session_state.authenticated = False
     st.session_state.user = None
