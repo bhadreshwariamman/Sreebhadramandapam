@@ -354,8 +354,12 @@ def login_page():
             <div class="god-frame">
     """, unsafe_allow_html=True)
 
+    # FIX: Use st.image instead of raw HTML to avoid quote escaping issues
     if img_url:
-        st.markdown(f'<img src="{img_url}" alt="Goddess Bhadreshwariamman" onerror="this.style.display='none'; this.parentElement.innerHTML='<div style=font-size:4rem;color:#FFD700;text-align:center;line-height:1;>🛕<br><span style=font-size:0.8rem;color:#FFF8DC;>Bhadreshwariamman</span></div>';">', unsafe_allow_html=True)
+        try:
+            st.image(img_url, width=200, use_container_width=False)
+        except Exception:
+            st.markdown('<div style="font-size:4rem; color:#FFD700; text-align:center; line-height:1;">🛕<br><span style="font-size:0.8rem; color:#FFF8DC;">Bhadreshwariamman</span></div>', unsafe_allow_html=True)
     else:
         st.markdown('<div style="font-size:4rem; color:#FFD700; text-align:center; line-height:1;">🛕<br><span style="font-size:0.8rem; color:#FFF8DC;">Bhadreshwariamman</span></div>', unsafe_allow_html=True)
 
